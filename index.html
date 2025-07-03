@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Permainan Tradisional Nusantara</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html { scroll-behavior: smooth; }
+    .fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeInUp 0.8s ease forwards;
+    }
+    @keyframes fadeInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    #map { height: 400px; border-radius: 1rem; margin-top: 2rem; }
+  </style>
+  <script src="data_permainan.js"></script>
+</head>
+<body class="bg-gradient-to-tr from-gray-100 to-white text-gray-800 font-sans">
+
+  <!-- Header -->
+  <header class="bg-gradient-to-r from-gray-700 to-gray-900 text-white text-center py-10 shadow-lg">
+    <h1 class="text-4xl font-bold mb-2 animate-pulse">🎮 Permainan Tradisional Nusantara</h1>
+    <p class="text-lg">Eksplorasi budaya bermain dari seluruh provinsi di Indonesia</p>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-7xl mx-auto px-6 py-10">
+    <!-- Filter Area -->
+    <div class="flex flex-col md:flex-row justify-between gap-4 mb-6">
+      <input id="searchInput" type="text" placeholder="Cari permainan atau jenis..."
+        class="w-full md:w-1/2 p-3 rounded-lg border shadow focus:outline-none focus:ring-2 focus:ring-gray-500"
+      />
+      <select id="filterProvinsi" class="w-full md:w-1/3 p-3 rounded-lg border shadow">
+        <option value="">Semua Provinsi</option>
+      </select>
+    </div>
+
+    <!-- Game Grid -->
+    <div id="gameGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+
+    <!-- Map -->
+    <h2 class="text-2xl font-bold text-gray-800 mt-16 mb-4">🗺️ Peta Persebaran Permainan</h2>
+    <div id="map"></div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-900 text-gray-200 text-center py-6 text-sm mt-12">
+    <p class="mb-1">© 2025 Nusantara Mainan</p>
+    <p>Website oleh:</p>
+    <p class="mt-1">Anezka Manuela Damanik – 2415091074</p>
+    <p>Amela Veronika Hutauruk – 2415091060</p>
+    <p>Velissya Caroline – 2415091100</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const grid = document.getElementById("gameGrid");
+    const searchInput = document.getElementById("searchInput");
+    const provinsiSelect = document.getElementById("filterProvinsi");
+
+    const provinsiCoords = {
+  "Aceh": [5.55, 95.32],
+  "Sumatera Utara": [3.58, 98.67],
+  "Sumatera Barat": [-0.95, 100.35],
+  "Riau": [0.51, 101.45],
+  "Jambi": [-1.6, 103.6],
+  "Bengkulu": [-3.8, 102.26],
+  "Lampung": [-5.45, 105.26],
+  "Kepulauan Riau": [3.99, 108.44],
+  "Bangka Belitung": [-2.74, 106.44],
+  "Sumatera Selatan": [-3.01, 104.76],
+  "DKI Jakarta": [-6.2, 106.8],
+  "Jawa Barat": [-6.9, 107.6],
+  "Jawa Tengah": [-7.15, 110.14],
+  "DI Yogyakarta": [-7.8, 110.37],
+  "Jawa Timur": [-7.54, 112.23],
+  "Banten": [-6.4, 106.1],
+  "Bali": [-8.65, 115.2],
+  "Nusa Tenggara Barat": [-8.65, 117.36],
+  "Nusa Tenggara Timur": [-10.17, 123.6],
+  "Kalimantan Barat": [0.1, 109.3],
+  "Kalimantan Tengah": [-1.61, 113.38],
+  "Kalimantan Selatan": [-3.32, 114.59],
+  "Kalimantan Timur": [0.52, 117.15],
+  "Kalimantan Utara": [3.3, 117.6],
+  "Sulawesi Utara": [1.5, 124.8],
+  "Sulawesi Tengah": [-0.9, 119.87],
+  "Sulawesi Selatan": [-4.0, 120.2],
+  "Sulawesi Tenggara": [-4.1, 122.5],
+  "Gorontalo": [0.7, 123.1],
+  "Sulawesi Barat": [-2.5, 119.35],
+  "Maluku": [-3.2, 128.08],
+  "Maluku Utara": [1.7, 127.4],
+  "Papua": [-4.3, 138.08],
+  "Papua Barat": [-1.34, 133.1],
+  "Papua Tengah": [-3.5, 137.0],
+  "Papua Pegunungan": [-4.1, 139.5],
+  "Papua Selatan": [-6.2, 140.3],
+  "Papua Barat Daya": [-0.86, 131.5]
+};
+
+    function fillProvinsiDropdown() {
+      const provList = [...new Set(permainanData.map(item => item.Provinsi))].sort();
+      provList.forEach(prov => {
+        const opt = document.createElement("option");
+        opt.value = prov;
+        opt.textContent = prov;
+        provinsiSelect.appendChild(opt);
+      });
+    }
+
+    function renderPermainan(filter = "", provFilter = "") {
+      grid.innerHTML = "";
+      const keyword = filter.toLowerCase();
+
+      permainanData
+        .filter(item =>
+          (item['Provinsi'].toLowerCase().includes(provFilter.toLowerCase()) || provFilter === "") &&
+          (
+            item['Nama Permainan Tradisional'].toLowerCase().includes(keyword) ||
+            item['Jenis Permainan'].toLowerCase().includes(keyword)
+          )
+        )
+        .forEach((item, index) => {
+          const card = document.createElement("div");
+          card.className = "fade-in p-6 bg-white rounded-2xl shadow-md border border-gray-300 hover:shadow-lg transition duration-300";
+          card.style.animationDelay = (index * 0.07) + "s";
+
+          card.innerHTML = `
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">${item['Nama Permainan Tradisional']}</h2>
+            <p class="text-sm text-gray-700 mb-1"><strong>Provinsi:</strong> ${item.Provinsi}</p>
+            <p class="text-sm text-gray-700 mb-1"><strong>Jenis:</strong> ${item['Jenis Permainan']}</p>
+            <p class="text-sm text-gray-700 mb-1"><strong>Alat:</strong> ${item['Alat yang Digunakan']}</p>
+            <p class="text-sm text-gray-700 mb-1"><strong>Usia:</strong> ${item['Usia Umum Pemain']}</p>
+            <details class="mt-3">
+              <summary class="text-gray-700 cursor-pointer font-semibold">Deskripsi & Nilai Budaya</summary>
+              <p class="text-sm mt-2 text-gray-600">${item['Deskripsi Singkat']}</p>
+              <p class="text-sm mt-2 italic text-gray-500">${item['Nilai Budaya/Manfaat']}</p>
+            </details>
+          `;
+          grid.appendChild(card);
+        });
+    }
+
+    const map = L.map('map').setView([-2.5, 117.5], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    function renderMarkers() {
+      Object.keys(provinsiCoords).forEach((prov) => {
+        const games = permainanData.filter(p => p.Provinsi === prov);
+        if (games.length > 0) {
+          L.marker(provinsiCoords[prov]).addTo(map)
+            .bindPopup(`<strong>${prov}</strong><br>${games.map(g => g['Nama Permainan Tradisional']).join(", ")}`);
+        }
+      });
+    }
+
+    searchInput.addEventListener("input", () => {
+      renderPermainan(searchInput.value, provinsiSelect.value);
+    });
+
+    provinsiSelect.addEventListener("change", () => {
+      renderPermainan(searchInput.value, provinsiSelect.value);
+    });
+
+    fillProvinsiDropdown();
+    renderPermainan();
+    renderMarkers();
+  </script>
+
+</body>
+</html>
